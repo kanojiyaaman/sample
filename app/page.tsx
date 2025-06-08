@@ -3,6 +3,7 @@
 import { useUser } from '@auth0/nextjs-auth0/client';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import Link from 'next/link'; // for navigation
 
 interface Message {
   role: 'user' | 'ai';
@@ -15,7 +16,6 @@ export default function Home() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
 
-  //  Load current user's messages only
   const fetchMessages = async () => {
     if (!user) return;
 
@@ -26,9 +26,9 @@ export default function Home() {
       .order('created_at', { ascending: true });
 
     if (!error && data) {
-      const filtered = data.map((msg: any, idx: number) => ({
-        role: idx % 2 === 0 ? 'user' : 'ai',
-        content: msg.content,
+      const filtered: Message[] = data.map((msg: any, idx: number) => ({
+        role: idx % 2 === 0 ? 'user' : 'ai', //  ensures type matches
+        content: String(msg.content),
       }));
       setMessages(filtered);
     } else {
@@ -38,7 +38,7 @@ export default function Home() {
 
   useEffect(() => {
     fetchMessages();
-  }, [user]);
+  }, [user, fetchMessages]); //  include fetchMessages to fix ESLint
 
   const handleSend = async () => {
     if (!input.trim() || !user) return;
@@ -48,13 +48,11 @@ export default function Home() {
     setInput('');
     setLoading(true);
 
-    //  Save user message
     await supabase.from('Message').insert({
       user_id: user.email,
       content: input,
     });
 
-    // Get Gemini reply
     const res = await fetch('/api/ai', {
       method: 'POST',
       body: JSON.stringify({ message: input }),
@@ -63,7 +61,6 @@ export default function Home() {
 
     const aiMsg: Message = { role: 'ai', content: reply };
 
-    //  Save Gemini reply under same user
     await supabase.from('Message').insert({
       user_id: user.email,
       content: reply,
@@ -73,7 +70,6 @@ export default function Home() {
     setLoading(false);
   };
 
-  //  Clear user's own chat
   const handleClearChat = async () => {
     if (!user) return;
 
@@ -93,7 +89,7 @@ export default function Home() {
     return (
       <div className="container text-center mt-5">
         <h4>Please log in to use the chat</h4>
-        <a href="/api/auth/login" className="btn btn-primary">Login</a>
+        <Link href="/api/auth/login" className="btn btn-primary">Login</Link>
       </div>
     );
   }
@@ -144,9 +140,9 @@ export default function Home() {
         <button className="btn btn-outline-danger btn-sm" onClick={handleClearChat}>
           Clear My Chat
         </button>
-        <a href="/api/auth/logout" className="btn btn-outline-secondary btn-sm">
+        <Link href="/api/auth/logout" className="btn btn-outline-secondary btn-sm">
           Logout
-        </a>
+        </Link>
       </div>
     </div>
   );
